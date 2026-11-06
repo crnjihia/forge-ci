@@ -17,9 +17,11 @@ import {
   GitBranch,
   RefreshCw,
   X,
+  ServerCrash,
+  Sparkles,
 } from 'lucide-react';
 import { RunRecord, RunStatus } from './types';
-import { fetchRuns, fetchRun, cancelRun, fetchBillingBalance } from './api';
+import { fetchRuns, fetchRun, cancelRun, fetchBillingBalance, checkHealth, triggerRun } from './api';
 import { DAGView } from './components/DAGView';
 import { LogViewer } from './components/LogViewer';
 import { SecretsView } from './components/SecretsView';
@@ -38,15 +40,23 @@ export const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [isTriggerModalOpen, setIsTriggerModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [apiOnline, setApiOnline] = useState<boolean | null>(null);
+
+  // Check backend health
+  const checkApi = async () => {
+    const health = await checkHealth();
+    setApiOnline(health !== null);
+  };
 
   // Load runs
   const loadRuns = async () => {
     try {
+      await checkApi();
       const data = await fetchRuns(50, 0);
-      setRuns(data);
-      if (!selectedRun && data.length > 0) {
+      setRuns(data || []);
+      if (!selectedRun && data && data.length > 0) {
         setSelectedRun(data[0]);
-      } else if (selectedRun) {
+      } else if (selectedRun && data) {
         // Refresh selected run details
         const updated = data.find((r) => r.id === selectedRun.id);
         if (updated) {
@@ -55,6 +65,7 @@ export const App: React.FC = () => {
       }
     } catch (err) {
       console.error('Error fetching runs:', err);
+      setApiOnline(false);
     } finally {
       setLoading(false);
     }
@@ -81,6 +92,18 @@ export const App: React.FC = () => {
 
     return () => clearInterval(interval);
   }, [selectedRun?.id]);
+
+  const handleQuickTrigger = async () => {
+    try {
+      const newRun = await triggerRun({
+        repo_url: 'https://github.com/crnji/forge-ci.git',
+        branch: 'main',
+      });
+      handleRunTriggered(newRun);
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : 'Failed to trigger run');
+    }
+  };
 
   const handleSelectRun = async (run: RunRecord) => {
     setSelectedRun(run);
@@ -176,6 +199,26 @@ export const App: React.FC = () => {
 
         {/* Right Section: Balance & Trigger Button */}
         <div className="flex items-center gap-3">
+          {/* API Server Status Indicator */}
+          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono border border-slate-800 bg-slate-850">
+            {apiOnline === null ? (
+              <span className="flex items-center gap-1.5 text-slate-400">
+                <Loader2 className="w-3 h-3 animate-spin text-slate-500" />
+                API checking...
+              </span>
+            ) : apiOnline ? (
+              <span className="flex items-center gap-1.5 text-emerald-400">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                API :8080
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5 text-rose-400">
+                <span className="w-2 h-2 rounded-full bg-rose-400" />
+                API Offline
+              </span>
+            )}
+          </div>
+
           <button
             onClick={() => setActiveTab('billing')}
             className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-850 hover:bg-slate-800 border border-slate-700/80 text-xs font-mono transition-colors"
@@ -202,12 +245,15 @@ export const App: React.FC = () => {
           <RunsTable
             runs={runs}
             loading={loading}
+            apiOnline={apiOnline}
             onSelectRun={(r) => {
               handleSelectRun(r);
               setActiveTab('dag_logs');
             }}
             onCancelRun={handleCancelRun}
             onRefresh={loadRuns}
+            onQuickTrigger={handleQuickTrigger}
+            onOpenTriggerModal={() => setIsTriggerModalOpen(true)}
           />
         )}
 
@@ -338,17 +384,23 @@ const TabButton: React.FC<TabButtonProps> = ({ active, onClick, icon, label, bad
 interface RunsTableProps {
   runs: RunRecord[];
   loading: boolean;
+  apiOnline: boolean | null;
   onSelectRun: (run: RunRecord) => void;
   onCancelRun: (runId: string) => void;
   onRefresh: () => void;
+  onQuickTrigger: () => void;
+  onOpenTriggerModal: () => void;
 }
 
 const RunsTable: React.FC<RunsTableProps> = ({
   runs,
   loading,
+  apiOnline,
   onSelectRun,
   onCancelRun,
   onRefresh,
+  onQuickTrigger,
+  onOpenTriggerModal,
 }) => (
   <div className="space-y-4">
     <div className="flex items-center justify-between">
@@ -373,13 +425,51 @@ const RunsTable: React.FC<RunsTableProps> = ({
           <Loader2 className="w-6 h-6 animate-spin mr-2 text-blue-400" />
           Loading pipeline runs...
         </div>
+      ) : apiOnline === false ? (
+        <div className="flex flex-col items-center justify-center p-12 text-slate-400 space-y-4">
+          <div className="w-12 h-12 rounded-2xl bg-rose-950/40 border border-rose-800/60 flex items-center justify-center text-rose-400 shadow-lg shadow-rose-950/20">
+            <ServerCrash className="w-6 h-6" />
+          </div>
+          <div className="text-center space-y-1">
+            <p className="text-base font-semibold text-slate-100">Backend API Offline</p>
+            <p className="text-xs text-slate-400 max-w-md">
+              The Forge CI backend server is not reachable on <code className="text-blue-400 bg-slate-850 px-1 py-0.5 rounded font-mono">http://localhost:8080</code>.
+            </p>
+          </div>
+          <div className="bg-slate-950 px-4 py-2.5 rounded-lg border border-slate-800 font-mono text-xs text-amber-300 select-all">
+            go run ./cmd/api
+          </div>
+          <button
+            onClick={onRefresh}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-medium transition-colors shadow-lg shadow-blue-600/20"
+          >
+            Retry Connection
+          </button>
+        </div>
       ) : runs.length === 0 ? (
-        <div className="flex flex-col items-center justify-center p-12 text-slate-500">
-          <Layers className="w-10 h-10 mb-3 opacity-40" />
-          <p className="text-base font-medium">No runs recorded yet</p>
-          <p className="text-xs text-slate-600 mt-1">
-            Trigger a pipeline manually or push code to your configured GitHub repository.
-          </p>
+        <div className="flex flex-col items-center justify-center p-12 text-slate-500 space-y-4">
+          <Layers className="w-10 h-10 opacity-40 text-blue-400" />
+          <div className="text-center space-y-1">
+            <p className="text-base font-semibold text-slate-200">No runs recorded yet</p>
+            <p className="text-xs text-slate-400 max-w-sm">
+              Trigger your first build pipeline to watch the DAG graph and live log stream in real time.
+            </p>
+          </div>
+          <div className="flex items-center gap-3 pt-2">
+            <button
+              onClick={onQuickTrigger}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-medium transition-colors shadow-lg shadow-blue-600/20"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              Trigger Sample Pipeline
+            </button>
+            <button
+              onClick={onOpenTriggerModal}
+              className="px-4 py-2 bg-slate-850 hover:bg-slate-800 border border-slate-700 text-slate-200 rounded-lg text-xs font-medium transition-colors"
+            >
+              Custom Pipeline
+            </button>
+          </div>
         </div>
       ) : (
         <table className="w-full text-left text-sm text-slate-300">

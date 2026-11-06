@@ -4,6 +4,16 @@ import { RunRecord, ArtifactRecord, BillingBalance, TopUpResponse } from './type
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
+export async function checkHealth(): Promise<{ status: string; service: string; version?: string } | null> {
+  try {
+    const res = await fetch(`${API_BASE}/healthz`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchRuns(limit = 50, offset = 0): Promise<RunRecord[]> {
   const res = await fetch(`${API_BASE}/runs?limit=${limit}&offset=${offset}`);
   if (!res.ok) throw new Error(`Failed to fetch runs: ${res.statusText}`);
