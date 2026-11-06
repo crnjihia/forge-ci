@@ -38,6 +38,7 @@ type StepRecord struct {
 	CompletedAt *time.Time `json:"completed_at,omitempty"`
 	DurationMs  int64      `json:"duration_ms"`
 	CreatedAt   time.Time  `json:"created_at"`
+	DependsOn   []string   `json:"depends_on,omitempty"`
 }
 
 // Store abstracts database operations for CI runs, steps, and artifacts.

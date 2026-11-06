@@ -43,7 +43,7 @@ steps:
   - id: checkout
     name: Repository Checkout
     image: alpine/git:latest
-    run: git clone https://github.com/crnji/forge-ci.git .
+    run: git clone https://github.com/crnjihia/forge-ci.git .
 
   - id: lint
     name: Static Code Analysis
@@ -70,7 +70,7 @@ EOF
 RUN_RESP=$(curl -s -X POST "${API_URL}/runs" \
   -H "Content-Type: application/json" \
   -d "$(jq -n \
-    --arg repo "https://github.com/crnji/forge-ci.git" \
+    --arg repo "https://github.com/crnjihia/forge-ci.git" \
     --arg branch "main" \
     --arg commit "a1b2c3d4e5f67890abcdef12" \
     --arg yaml "${PIPELINE_YAML}" \

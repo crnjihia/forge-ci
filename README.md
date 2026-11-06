@@ -4,7 +4,7 @@
 > **Self-hosted, air-gappable CI/CD platform and real-time log-streaming engine.**  
 > Built by Chris (Nairobi, Kenya; `Africa/Nairobi`) for resilient, isolated, on-premise builds.
 
-[![CI Status](https://github.com/crnji/forge-ci/workflows/ci/badge.svg)](https://github.com/crnji/forge-ci/actions)
+[![CI Status](https://github.com/crnjihia/forge-ci/workflows/ci/badge.svg)](https://github.com/crnjihia/forge-ci/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go)](https://golang.org)
 [![React Version](https://img.shields.io/badge/React-18-61DAFB?logo=react)](https://react.dev)
@@ -101,7 +101,7 @@ Run the entire platform on your machine without external credentials:
 
 ```bash
 # 1. Clone repository
-git clone https://github.com/crnji/forge-ci.git
+git clone https://github.com/crnjihia/forge-ci.git
 cd forge-ci
 
 # 2. Configure environment
@@ -151,7 +151,7 @@ steps:
   - id: checkout
     name: Source Checkout
     image: alpine/git:latest
-    run: git clone https://github.com/crnji/forge-ci.git .
+    run: git clone https://github.com/crnjihia/forge-ci.git .
 
   - id: lint
     name: Code Quality Check

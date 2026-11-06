@@ -32,7 +32,7 @@ func handleTriggerRun(st store.Store, coord *Coordinator) http.HandlerFunc {
 		}
 
 		if req.RepoURL == "" {
-			req.RepoURL = "https://github.com/crnji/forge-ci.git"
+			req.RepoURL = "https://github.com/crnjihia/forge-ci.git"
 		}
 		if req.Branch == "" {
 			req.Branch = "main"

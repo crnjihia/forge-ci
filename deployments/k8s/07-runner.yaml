@@ -23,7 +23,7 @@ spec:
           effect: "NoSchedule"
       containers:
         - name: runner
-          image: ghcr.io/crnji/forge-ci/forge-runner:latest
+          image: ghcr.io/crnjihia/forge-ci/forge-runner:latest
           imagePullPolicy: IfNotPresent
           securityContext:
             privileged: false

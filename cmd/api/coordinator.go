@@ -258,6 +258,7 @@ func (c *Coordinator) resolveSteps(run *store.RunRecord, yamlContent string) ([]
 				Name:      stepName,
 				Image:     s.Image,
 				Command:   s.Run,
+				DependsOn: s.DependsOn,
 				Status:    "pending",
 				CreatedAt: time.Now().UTC(),
 			})
@@ -285,6 +286,7 @@ func (c *Coordinator) resolveSteps(run *store.RunRecord, yamlContent string) ([]
 			Name:      "Unit & Integration Tests",
 			Image:     "golang:1.22-alpine",
 			Command:   "go test -v ./...",
+			DependsOn: []string{"lint"},
 			Status:    "pending",
 			CreatedAt: now,
 		},
@@ -295,6 +297,7 @@ func (c *Coordinator) resolveSteps(run *store.RunRecord, yamlContent string) ([]
 			Name:      "Binary Compilation",
 			Image:     "golang:1.22-alpine",
 			Command:   "go build -o dist/app ./...",
+			DependsOn: []string{"test"},
 			Status:    "pending",
 			CreatedAt: now,
 		},

@@ -9,6 +9,7 @@ import (
 
 // Pipeline represents a declarative CI/CD pipeline definition.
 type Pipeline struct {
+	Version int               `yaml:"version,omitempty"`
 	Name    string            `yaml:"name"`
 	Env     map[string]string `yaml:"env,omitempty"`
 	Steps   []Step            `yaml:"steps"`

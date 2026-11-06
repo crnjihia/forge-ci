@@ -96,7 +96,7 @@ export const App: React.FC = () => {
   const handleQuickTrigger = async () => {
     try {
       const newRun = await triggerRun({
-        repo_url: 'https://github.com/crnji/forge-ci.git',
+        repo_url: 'https://github.com/crnjihia/forge-ci.git',
         branch: 'main',
       });
       handleRunTriggered(newRun);
@@ -302,6 +302,17 @@ export const App: React.FC = () => {
             ) : (
               <div className="p-8 text-center text-slate-500 border border-dashed border-slate-800 rounded-xl">
                 Select a run from the Runs tab to view execution details.
+              </div>
+            )}
+
+            {/* Error Message Banner */}
+            {selectedRun && selectedRun.error_message && (
+              <div className="flex items-start gap-3 p-4 rounded-xl bg-rose-950/40 border border-rose-800 text-rose-300 text-xs">
+                <XCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-semibold block text-rose-200 mb-0.5">Pipeline Execution Error</span>
+                  <span className="font-mono text-slate-300">{selectedRun.error_message}</span>
+                </div>
               </div>
             )}
 

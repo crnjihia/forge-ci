@@ -36,7 +36,7 @@ spec:
     spec:
       containers:
         - name: api
-          image: ghcr.io/crnji/forge-ci/forge-api:latest
+          image: ghcr.io/crnjihia/forge-ci/forge-api:latest
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -107,7 +107,7 @@ spec:
     spec:
       containers:
         - name: web
-          image: ghcr.io/crnji/forge-ci/forge-web:latest
+          image: ghcr.io/crnjihia/forge-ci/forge-web:latest
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

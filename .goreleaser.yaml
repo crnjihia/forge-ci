@@ -103,7 +103,7 @@ changelog:
 
 release:
   github:
-    owner: crnji
+    owner: crnjihia
     name: forge-ci
   draft: false
   prerelease: auto

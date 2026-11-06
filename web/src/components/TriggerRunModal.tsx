@@ -38,7 +38,7 @@ export const TriggerRunModal: React.FC<TriggerRunModalProps> = ({
   onClose,
   onRunTriggered,
 }) => {
-  const [repoUrl, setRepoUrl] = useState('https://github.com/crnji/forge-ci.git');
+  const [repoUrl, setRepoUrl] = useState('https://github.com/crnjihia/forge-ci.git');
   const [branch, setBranch] = useState('main');
   const [commitSha, setCommitSha] = useState('');
   const [pipelineYaml, setPipelineYaml] = useState(DEFAULT_PIPELINE_YAML);
