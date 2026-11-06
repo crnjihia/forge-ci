@@ -7,7 +7,7 @@ Thank you for your interest in contributing to **Forge CI**! This project is cra
 
 ## Code of Conduct
 
-We are committed to providing a welcoming, inclusive, and harassment-free environment for all contributors. Please treat everyone with respect and empathy.
+I am committed to providing a welcoming, inclusive, and harassment-free environment for all contributors. Please treat everyone with respect and empathy.
 
 ---
 

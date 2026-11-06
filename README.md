@@ -299,6 +299,7 @@ GitHub Actions automatically runs GoReleaser and pushes container images to GitH
 
 Crafted with dedication by **Chris** in Nairobi, Kenya (`Africa/Nairobi`).  
 * GitHub: [@crnjihia](https://github.com/crnjihia)  
+* Email: [crnjihia@gmail.com](mailto:crnjihia@gmail.com)  
 * Repository: [https://github.com/crnjihia/forge-ci](https://github.com/crnjihia/forge-ci)
 
 Licensed under the **[MIT License](LICENSE)**.
