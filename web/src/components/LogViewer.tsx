@@ -36,11 +36,8 @@ export const LogViewer: React.FC<LogViewerProps> = ({ runId, stepId }) => {
 
     const eventSource = new EventSource(url);
 
-    eventSource.onopen = () => {
-      setIsConnected(true);
-    };
-
-    eventSource.addEventListener('log', (event: MessageEvent) => {
+    const handleLogMessage = (event: MessageEvent) => {
+      if (!event.data || event.data === 'keepalive' || event.data.startsWith(':')) return;
       try {
         const parsed = JSON.parse(event.data);
         const entry: LogEntry = {
@@ -61,10 +58,19 @@ export const LogViewer: React.FC<LogViewerProps> = ({ runId, stepId }) => {
           },
         ]);
       }
-    });
+    };
+
+    eventSource.onopen = () => {
+      setIsConnected(true);
+    };
+
+    eventSource.addEventListener('log', handleLogMessage);
+    eventSource.onmessage = handleLogMessage;
 
     eventSource.onerror = () => {
-      setIsConnected(false);
+      if (eventSource.readyState === EventSource.CLOSED) {
+        setIsConnected(false);
+      }
     };
 
     return () => {

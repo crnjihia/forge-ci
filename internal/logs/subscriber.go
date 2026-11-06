@@ -35,6 +35,9 @@ type MockRedisPubSub struct {
 	published   map[string][]string
 }
 
+// DefaultMockPubSub is the global in-memory pub/sub broker used in offline/mock mode.
+var DefaultMockPubSub = NewMockRedis()
+
 // NewMockRedis creates an in-memory pub/sub broker.
 func NewMockRedis() *MockRedisPubSub {
 	return &MockRedisPubSub{
@@ -63,6 +66,18 @@ func (m *MockRedisPubSub) Subscribe(channel string) chan string {
 	ch := make(chan string, 100)
 	m.subscribers[channel] = append(m.subscribers[channel], ch)
 	return ch
+}
+
+func (m *MockRedisPubSub) Unsubscribe(channel string, ch chan string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	subs := m.subscribers[channel]
+	for i, c := range subs {
+		if c == ch {
+			m.subscribers[channel] = append(subs[:i], subs[i+1:]...)
+			break
+		}
+	}
 }
 
 func (m *MockRedisPubSub) Published(channel string) []string {

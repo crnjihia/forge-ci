@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -305,26 +306,36 @@ func (c *Coordinator) resolveSteps(run *store.RunRecord, yamlContent string) ([]
 }
 
 func (c *Coordinator) runStep(ctx context.Context, runID string, s store.StepRecord) (int, error) {
-	// Emit step execution logs
-	if c.streamer != nil {
-		channel := fmt.Sprintf("logs:%s", runID)
-		msg := fmt.Sprintf("[%s] Executing %s (%s)...\n", s.StepID, s.Name, s.Command)
-		_ = c.streamer.Publish(ctx, channel, msg)
+	channel := fmt.Sprintf("logs:%s", runID)
+
+	publishLog := func(line string) {
+		payload, _ := json.Marshal(map[string]interface{}{
+			"id":        time.Now().UnixNano(),
+			"run_id":    runID,
+			"step_id":   s.StepID,
+			"line":      line,
+			"timestamp": time.Now().UTC().Format(time.RFC3339),
+		})
+		msgStr := string(payload)
+
+		if c.streamer != nil {
+			_ = c.streamer.Publish(ctx, channel, msgStr)
+		} else {
+			logs.DefaultMockPubSub.Publish(channel, msgStr)
+		}
 	}
+
+	publishLog(fmt.Sprintf("[%s] Executing %s (%s)...", s.StepID, s.Name, s.Command))
 
 	// Simulate step execution delay
 	select {
 	case <-ctx.Done():
+		publishLog(fmt.Sprintf("[%s] Step cancelled.", s.StepID))
 		return 1, ctx.Err()
-	case <-time.After(300 * time.Millisecond):
+	case <-time.After(800 * time.Millisecond):
 	}
 
-	if c.streamer != nil {
-		channel := fmt.Sprintf("logs:%s", runID)
-		msg := fmt.Sprintf("[%s] Step %s finished successfully with exit code 0\n", s.StepID, s.StepID)
-		_ = c.streamer.Publish(ctx, channel, msg)
-	}
-
+	publishLog(fmt.Sprintf("[%s] Step %s finished successfully with exit code 0.", s.StepID, s.StepID))
 	return 0, nil
 }
 

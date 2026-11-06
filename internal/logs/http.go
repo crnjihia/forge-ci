@@ -13,8 +13,8 @@ import (
 )
 
 // SSEHandler streams logs for a run (and optional step) over Server-Sent Events.
-// It replays backlog logs from PostgreSQL when Last-Event-ID is provided, and then
-// streams real-time updates from Redis Pub/Sub with secret masking.
+// It replays backlog logs from PostgreSQL or in-memory cache, and streams real-time updates
+// from Redis Pub/Sub or DefaultMockPubSub with secret masking.
 func SSEHandler(redisClient RedisPub, dbPool *pgxpool.Pool, masker SecretMasker) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
@@ -26,12 +26,10 @@ func SSEHandler(redisClient RedisPub, dbPool *pgxpool.Pool, masker SecretMasker)
 			return
 		}
 
-		// Parse Last-Event-ID header for client reconnection catchup
-		var lastID int64
-		if idStr := r.Header.Get("Last-Event-ID"); idStr != "" {
-			if v, err := strconv.ParseInt(idStr, 10, 64); err == nil {
-				lastID = v
-			}
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			http.Error(w, "streaming unsupported by client", http.StatusInternalServerError)
+			return
 		}
 
 		// Setup Server-Sent Events headers
@@ -40,13 +38,19 @@ func SSEHandler(redisClient RedisPub, dbPool *pgxpool.Pool, masker SecretMasker)
 		w.Header().Set("Connection", "keep-alive")
 		w.Header().Set("X-Accel-Buffering", "no")
 
-		flusher, ok := w.(http.Flusher)
-		if !ok {
-			http.Error(w, "streaming unsupported by client", http.StatusInternalServerError)
-			return
+		// Send initial preamble comment so browser's EventSource immediately transitions to OPEN (readyState=1)
+		fmt.Fprintf(w, ": connected\n\n")
+		flusher.Flush()
+
+		// Parse Last-Event-ID header for client reconnection catchup
+		var lastID int64
+		if idStr := r.Header.Get("Last-Event-ID"); idStr != "" {
+			if v, err := strconv.ParseInt(idStr, 10, 64); err == nil {
+				lastID = v
+			}
 		}
 
-		// 1. Replay historical logs from PostgreSQL if requested
+		// 1. Replay historical logs from PostgreSQL if available
 		if lastID > 0 && dbPool != nil {
 			query := `SELECT id, run_id, step_id, stream, line, timestamp FROM logs WHERE run_id=$1 AND id > $2 ORDER BY id ASC LIMIT 500`
 			args := []interface{}{runID, lastID}
@@ -74,36 +78,66 @@ func SSEHandler(redisClient RedisPub, dbPool *pgxpool.Pool, masker SecretMasker)
 			}
 		}
 
-		// 2. Subscribe to Redis live log channel
 		channel := fmt.Sprintf("logs:%s", runID)
 		if stepID != "" {
 			channel = fmt.Sprintf("logs:%s:%s", runID, stepID)
 		}
 
-		if redisClient == nil {
-			return
-		}
-
-		sub := redisClient.Subscribe(ctx, channel)
-		defer sub.Close()
-		ch := sub.Channel()
-
-		// 3. Keep-alive heartbeat ticker
 		ticker := time.NewTicker(15 * time.Second)
 		defer ticker.Stop()
 
+		// 2. Real Redis Mode
+		if redisClient != nil {
+			sub := redisClient.Subscribe(ctx, channel)
+			defer sub.Close()
+			ch := sub.Channel()
+
+			for {
+				select {
+				case msg, ok := <-ch:
+					if !ok {
+						return
+					}
+					data := msg.Payload
+					if masker != nil {
+						data = masker.MaskString(data)
+					}
+					fmt.Fprintf(w, "event: log\ndata: %s\n\n", data)
+					flusher.Flush()
+
+				case <-ticker.C:
+					fmt.Fprintf(w, ": keepalive\n\n")
+					flusher.Flush()
+
+				case <-ctx.Done():
+					return
+				}
+			}
+		}
+
+		// 3. In-Memory Mock Mode (Offline / Local Dev)
+		// Replay existing published logs for this channel so past logs are never missed
+		for _, raw := range DefaultMockPubSub.Published(channel) {
+			data := raw
+			if masker != nil {
+				data = masker.MaskString(data)
+			}
+			fmt.Fprintf(w, "event: log\ndata: %s\n\n", data)
+			flusher.Flush()
+		}
+
+		ch := DefaultMockPubSub.Subscribe(channel)
+		defer DefaultMockPubSub.Unsubscribe(channel, ch)
+
 		for {
 			select {
-			case msg, ok := <-ch:
+			case data, ok := <-ch:
 				if !ok {
 					return
 				}
-
-				data := msg.Payload
 				if masker != nil {
 					data = masker.MaskString(data)
 				}
-
 				fmt.Fprintf(w, "event: log\ndata: %s\n\n", data)
 				flusher.Flush()
 
