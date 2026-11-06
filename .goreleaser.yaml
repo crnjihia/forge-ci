@@ -55,10 +55,10 @@ builds:
 archives:
   - id: default
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
-    format: tar.gz
+    formats: ["tar.gz"]
     format_overrides:
       - goos: windows
-        format: zip
+        formats: ["zip"]
     files:
       - README.md
       - LICENSE*
@@ -108,6 +108,7 @@ release:
   draft: false
   prerelease: auto
   mode: replace
+  replace_existing_artifacts: true
   header: |
     ## Forge CI Production Release ({{ .Tag }})
 
