@@ -108,7 +108,7 @@ cd forge-ci
 cp .env.example .env
 
 # 3. Start API server (PowerShell or Bash)
-go run cmd/api/main.go
+go run ./cmd/api
 ```
 The API server will launch on `http://localhost:8080` with mock adapters enabled (`USE_MOCK_INTEGRATIONS=true`).
 

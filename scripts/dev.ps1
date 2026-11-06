@@ -28,7 +28,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host "[2/3] Starting Forge CI API Server on :8080 (Mock Integrations Enabled)..." -ForegroundColor Green
-$apiProcess = Start-Process -FilePath "go" -ArgumentList "run", "cmd/api/main.go" -PassThru -NoNewWindow
+$apiProcess = Start-Process -FilePath "go" -ArgumentList "run", "./cmd/api" -PassThru -NoNewWindow
 
 Start-Sleep -Seconds 2
 

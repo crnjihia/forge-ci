@@ -14,7 +14,7 @@ echo -e "\n[1/5] Checking Forge CI API health probe..."
 HEALTH_RESP=$(curl -s -f "${API_URL}/healthz" || echo "failed")
 if [[ "${HEALTH_RESP}" == "failed" ]]; then
   echo "Error: Forge CI API is not running at ${API_URL}."
-  echo "Start the server with: go run cmd/api/main.go"
+  echo "Start the server with: go run ./cmd/api"
   exit 1
 fi
 echo "       Response: ${HEALTH_RESP}"
