@@ -1,6 +1,6 @@
 # path: cmd/runner/Dockerfile
 
-FROM golang:1.22-alpine AS builder
+FROM golang:alpine AS builder
 
 WORKDIR /src
 
