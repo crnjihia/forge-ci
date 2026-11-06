@@ -1,0 +1,47 @@
+# path: deployments/caddy/Caddyfile
+{
+    email admin@example.co.ke
+    admin off
+}
+
+{$DOMAIN:localhost} {
+    # Logging
+    log {
+        output stdout
+        format json
+    }
+
+    # Compress responses (excluding SSE streams)
+    encode zstd gzip
+
+    # API and SSE endpoints routed to backend API
+    @backend {
+        path /healthz
+        path /version
+        path /runs*
+        path /secrets*
+        path /webhooks*
+        path /billing*
+    }
+
+    handle @backend {
+        reverse_proxy api:8080 {
+            # Disable buffering for real-time SSE log streaming
+            flush_interval -1
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
+    # MinIO console proxy (optional, for admin access)
+    handle_path /storage/* {
+        reverse_proxy minio:9001
+    }
+
+    # Frontend Single Page Application
+    handle {
+        reverse_proxy web:80
+    }
+}
+

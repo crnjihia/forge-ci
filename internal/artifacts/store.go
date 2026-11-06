@@ -273,6 +273,10 @@ func matchGlob(pattern, path string) bool {
 
 // detectContentType returns common MIME types based on file extension.
 func detectContentType(path string) string {
+	lower := strings.ToLower(path)
+	if strings.HasSuffix(lower, ".tar.gz") || strings.HasSuffix(lower, ".tgz") {
+		return "application/gzip"
+	}
 	ext := strings.ToLower(filepath.Ext(path))
 	switch ext {
 	case ".json":
@@ -283,7 +287,9 @@ func detectContentType(path string) string {
 		return "text/html"
 	case ".txt", ".log":
 		return "text/plain"
-	case ".tar", ".tar.gz", ".tgz":
+	case ".tar":
+		return "application/x-tar"
+	case ".gz":
 		return "application/gzip"
 	case ".zip":
 		return "application/zip"

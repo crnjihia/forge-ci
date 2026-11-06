@@ -1,0 +1,28 @@
+# path: deployments/k8s/01-configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: forge-config
+  namespace: forge-ci
+  labels:
+    app.kubernetes.io/name: forge-ci
+    app.kubernetes.io/component: configuration
+data:
+  ENV: "production"
+  PORT: "8080"
+  TIMEZONE: "Africa/Nairobi"
+  LOG_LEVEL: "info"
+  POSTGRES_DB: "forge_ci"
+  POSTGRES_HOST: "forge-postgres"
+  POSTGRES_PORT: "5432"
+  REDIS_HOST: "forge-redis"
+  REDIS_PORT: "6379"
+  MINIO_ENDPOINT: "forge-minio:9000"
+  MINIO_BUCKET: "forge-artifacts"
+  MINIO_USE_SSL: "false"
+  USE_MOCK_INTEGRATIONS: "false"
+  DARAJA_ENVIRONMENT: "production"
+  DARAJA_BUSINESS_SHORTCODE: "174379"
+  AT_USERNAME: "forge-ci"
+  AT_SENDER_ID: "FORGE_CI"
+

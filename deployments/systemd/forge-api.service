@@ -1,0 +1,31 @@
+# path: deployments/systemd/forge-api.service
+[Unit]
+Description=Forge CI - API Server and Orchestration Coordinator
+Documentation=https://github.com/crnji/forge-ci
+After=network.target postgresql.service redis.service
+
+[Service]
+Type=simple
+User=forge
+Group=forge
+WorkingDirectory=/var/lib/forge
+EnvironmentFile=/etc/forge/forge.env
+ExecStart=/usr/local/bin/forge-api
+Restart=always
+RestartSec=5s
+LimitNOFILE=65535
+
+# Hardening Directives
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true
+
+# Standard Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=forge-api
+
+[Install]
+WantedBy=multi-user.target
+

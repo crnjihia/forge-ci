@@ -23,6 +23,15 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+var (
+	// Version is injected during build via -ldflags "-X main.Version=..."
+	Version = "v1.0.0"
+	// Commit is injected during build via -ldflags "-X main.Commit=..."
+	Commit = "none"
+	// BuildDate is injected during build via -ldflags "-X main.BuildDate=..."
+	BuildDate = "unknown"
+)
+
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
@@ -30,7 +39,12 @@ func main() {
 	slog.SetDefault(logger)
 
 	useMocks := strings.EqualFold(os.Getenv("USE_MOCK_INTEGRATIONS"), "true") || os.Getenv("USE_MOCK_INTEGRATIONS") == ""
-	logger.Info("starting forge-ci api server", "mock_integrations", useMocks)
+	logger.Info("starting forge-ci api server",
+		"version", Version,
+		"commit", Commit,
+		"build_date", BuildDate,
+		"mock_integrations", useMocks,
+	)
 
 	// 1. Secrets Master Key
 	masterKey := os.Getenv("FORGE_MASTER_KEY")

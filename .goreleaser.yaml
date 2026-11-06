@@ -1,0 +1,116 @@
+# path: .goreleaser.yaml
+# GoReleaser v2 configuration for Forge CI release automation
+version: 2
+
+project_name: forge-ci
+
+before:
+  hooks:
+    - go mod tidy
+    - go vet ./...
+
+builds:
+  - id: forge-api
+    main: ./cmd/api
+    binary: forge-api
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X main.Version={{.Version}}
+      - -X main.Commit={{.Commit}}
+      - -X main.BuildDate={{.Date}}
+
+  - id: forge-runner
+    main: ./cmd/runner
+    binary: forge-runner
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X main.Version={{.Version}}
+      - -X main.Commit={{.Commit}}
+      - -X main.BuildDate={{.Date}}
+
+archives:
+  - id: default
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format: tar.gz
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - README.md
+      - LICENSE*
+      - migrations/**
+      - deployments/systemd/**
+      - deployments/docker-compose.prod.yml
+      - deployments/.env.example
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-snapshot"
+
+changelog:
+  sort: asc
+  use: github
+  groups:
+    - title: "🚀 Features"
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 100
+    - title: "🐛 Bug Fixes"
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 200
+    - title: "⚡ Performance Improvements"
+      regexp: '^.*?perf(\([[:word:]]+\))??!?:.+$'
+      order: 300
+    - title: "🛡️ Security & Hardening"
+      regexp: '^.*?sec(\([[:word:]]+\))??!?:.+$'
+      order: 400
+    - title: "🧰 Maintenance & Dependencies"
+      order: 999
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "merge conflict"
+      - "Merge branch"
+      - "Merge pull request"
+
+release:
+  github:
+    owner: crnji
+    name: forge-ci
+  draft: false
+  prerelease: auto
+  mode: replace
+  header: |
+    ## Forge CI Production Release ({{ .Tag }})
+
+    Self-hosted, air-gappable CI/CD platform and real-time log streaming engine.
+    Engineered with first-class African developer ergonomics: Safaricom Daraja M-Pesa billing & Africa's Talking SMS notifications.
+

@@ -1,0 +1,220 @@
+# path: deployments/docker-compose.prod.yml
+# Forge CI - Production Multi-Container Orchestration Stack
+# Hardened for high-availability, automated TLS, and air-gapped environments.
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: forge_prod_caddy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_started
+    networks:
+      - forge_net
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: forge_prod_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-forge_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
+      POSTGRES_DB: ${POSTGRES_DB:-forge_ci}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-forge_admin} -d ${POSTGRES_DB:-forge_ci}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2048M
+    networks:
+      - forge_net
+
+  redis:
+    image: redis:7-alpine
+    container_name: forge_prod_redis
+    restart: always
+    command: >
+      sh -c 'if [ -n "$$REDIS_PASSWORD" ]; then
+        redis-server --requirepass "$$REDIS_PASSWORD" --appendonly yes;
+      else
+        redis-server --appendonly yes;
+      fi'
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: >
+        sh -c 'if [ -n "$$REDIS_PASSWORD" ]; then
+          redis-cli -a "$$REDIS_PASSWORD" ping | grep PONG;
+        else
+          redis-cli ping | grep PONG;
+        fi'
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - forge_net
+
+  minio:
+    image: minio/minio:RELEASE.2024-05-10T01-41-38Z
+    container_name: forge_prod_minio
+    restart: always
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-forge_minio_admin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD required}
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - forge_net
+
+  createbuckets:
+    image: minio/mc:RELEASE.2024-05-09T17-04-24Z
+    container_name: forge_prod_minio_init
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-forge_minio_admin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD required}
+      MINIO_BUCKET: ${MINIO_BUCKET:-forge-artifacts}
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set local http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD};
+      /usr/bin/mc mb --ignore-existing local/$${MINIO_BUCKET};
+      exit 0;
+      "
+    networks:
+      - forge_net
+
+  api:
+    image: ghcr.io/crnji/forge-ci/forge-api:latest
+    build:
+      context: ..
+      dockerfile: cmd/api/Dockerfile
+    container_name: forge_prod_api
+    restart: always
+    environment:
+      PORT: 8080
+      ENV: production
+      TIMEZONE: ${TIMEZONE:-Africa/Nairobi}
+      FORGE_MASTER_KEY: ${FORGE_MASTER_KEY:?FORGE_MASTER_KEY required}
+      POSTGRES_URL: ${POSTGRES_URL:?POSTGRES_URL required}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio:9000}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-forge_minio_admin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:?MINIO_SECRET_KEY required}
+      MINIO_BUCKET: ${MINIO_BUCKET:-forge-artifacts}
+      MINIO_USE_SSL: ${MINIO_USE_SSL:-false}
+      USE_MOCK_INTEGRATIONS: ${USE_MOCK_INTEGRATIONS:-false}
+      DARAJA_ENVIRONMENT: ${DARAJA_ENVIRONMENT:-sandbox}
+      DARAJA_CONSUMER_KEY: ${DARAJA_CONSUMER_KEY:-}
+      DARAJA_CONSUMER_SECRET: ${DARAJA_CONSUMER_SECRET:-}
+      DARAJA_BUSINESS_SHORTCODE: ${DARAJA_BUSINESS_SHORTCODE:-174379}
+      DARAJA_PASSKEY: ${DARAJA_PASSKEY:-}
+      DARAJA_CALLBACK_URL: ${DARAJA_CALLBACK_URL:-}
+      AT_USERNAME: ${AT_USERNAME:-}
+      AT_API_KEY: ${AT_API_KEY:-}
+      AT_SENDER_ID: ${AT_SENDER_ID:-}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      createbuckets:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2048M
+    networks:
+      - forge_net
+
+  runner:
+    image: ghcr.io/crnji/forge-ci/forge-runner:latest
+    build:
+      context: ..
+      dockerfile: cmd/runner/Dockerfile
+    container_name: forge_prod_runner
+    restart: always
+    environment:
+      ENV: production
+      TIMEZONE: ${TIMEZONE:-Africa/Nairobi}
+      FORGE_MASTER_KEY: ${FORGE_MASTER_KEY:?FORGE_MASTER_KEY required}
+      POSTGRES_URL: ${POSTGRES_URL:?POSTGRES_URL required}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio:9000}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-forge_minio_admin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:?MINIO_SECRET_KEY required}
+      MINIO_BUCKET: ${MINIO_BUCKET:-forge-artifacts}
+      MINIO_USE_SSL: ${MINIO_USE_SSL:-false}
+      USE_MOCK_INTEGRATIONS: ${USE_MOCK_INTEGRATIONS:-false}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - forge_net
+
+  web:
+    image: ghcr.io/crnji/forge-ci/forge-web:latest
+    build:
+      context: ../web
+      dockerfile: Dockerfile
+    container_name: forge_prod_web
+    restart: always
+    networks:
+      - forge_net
+
+networks:
+  forge_net:
+    name: forge_prod_network
+    driver: bridge
+
+volumes:
+  pgdata:
+    name: forge_prod_pgdata
+  redisdata:
+    name: forge_prod_redisdata
+  miniodata:
+    name: forge_prod_miniodata
+  caddy_data:
+    name: forge_prod_caddy_data
+  caddy_config:
+    name: forge_prod_caddy_config
+

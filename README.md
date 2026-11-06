@@ -210,7 +210,47 @@ npm run build
 
 ---
 
-## 8. License & Author
+## 8. Packaging, Releases & Production Deployments
+
+### A. Release Packaging (Multi-Platform Binaries)
+
+Forge CI binaries (`forge-api` and `forge-runner`) can be cross-compiled for Linux (`amd64`, `arm64`), macOS (`amd64`, `arm64`), and Windows (`amd64`):
+
+```bash
+# POSIX / Linux / macOS release build & packaging
+./scripts/build_release.sh v1.0.0
+
+# Windows PowerShell release packaging
+powershell -ExecutionPolicy Bypass -File ./scripts/package.ps1 -Version v1.0.0
+```
+Releases are automatically published on GitHub when pushing a git semver tag (`git tag -a v1.0.0 -m "Release v1.0.0" && git push origin v1.0.0`) via GoReleaser and GitHub Container Registry (`ghcr.io`).
+
+### B. Production Deployment Options
+
+#### 1. Hardened Production Docker Compose (with Caddy Automatic TLS)
+```bash
+cp deployments/.env.example .env
+# Edit .env with your production credentials
+docker compose -f deployments/docker-compose.prod.yml up -d
+```
+
+#### 2. Kubernetes Cluster Deployment (Kustomize)
+```bash
+# Review and configure deployments/k8s/01-configmap.yaml and 02-secrets.yaml
+kubectl apply -k deployments/k8s
+```
+
+#### 3. Bare-Metal Linux Host / Air-Gapped Systemd
+```bash
+cd deployments/systemd
+sudo bash install.sh
+sudo systemctl enable --now forge-api forge-runner
+sudo systemctl status forge-api forge-runner
+```
+
+---
+
+## 9. License & Author
 
 Crafted with dedication by **Chris** in Nairobi, Kenya (`Africa/Nairobi`).  
 Licensed under the [MIT License](LICENSE).

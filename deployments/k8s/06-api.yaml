@@ -1,0 +1,198 @@
+# path: deployments/k8s/06-api.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: forge-api
+  namespace: forge-ci
+  labels:
+    app.kubernetes.io/name: forge-api
+    app.kubernetes.io/part-of: forge-ci
+spec:
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+  selector:
+    app.kubernetes.io/name: forge-api
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: forge-api
+  namespace: forge-ci
+  labels:
+    app.kubernetes.io/name: forge-api
+    app.kubernetes.io/part-of: forge-ci
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: forge-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: forge-api
+        app.kubernetes.io/part-of: forge-ci
+    spec:
+      containers:
+        - name: api
+          image: ghcr.io/crnji/forge-ci/forge-api:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: forge-config
+            - secretRef:
+                name: forge-secrets
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 2
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1024Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: forge-web
+  namespace: forge-ci
+  labels:
+    app.kubernetes.io/name: forge-web
+    app.kubernetes.io/part-of: forge-ci
+spec:
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+  selector:
+    app.kubernetes.io/name: forge-web
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: forge-web
+  namespace: forge-ci
+  labels:
+    app.kubernetes.io/name: forge-web
+    app.kubernetes.io/part-of: forge-ci
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: forge-web
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: forge-web
+        app.kubernetes.io/part-of: forge-ci
+    spec:
+      containers:
+        - name: web
+          image: ghcr.io/crnji/forge-ci/forge-web:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 80
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: forge-ingress
+  namespace: forge-ci
+  labels:
+    app.kubernetes.io/name: forge-ingress
+    app.kubernetes.io/part-of: forge-ci
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  tls:
+    - hosts:
+        - ci.example.co.ke
+      secretName: forge-ci-tls
+  rules:
+    - host: ci.example.co.ke
+      http:
+        paths:
+          # API & Health Routes
+          - path: /healthz
+            pathType: Exact
+            backend:
+              service:
+                name: forge-api
+                port:
+                  number: 8080
+          - path: /version
+            pathType: Exact
+            backend:
+              service:
+                name: forge-api
+                port:
+                  number: 8080
+          - path: /runs
+            pathType: Prefix
+            backend:
+              service:
+                name: forge-api
+                port:
+                  number: 8080
+          - path: /secrets
+            pathType: Prefix
+            backend:
+              service:
+                name: forge-api
+                port:
+                  number: 8080
+          - path: /webhooks
+            pathType: Prefix
+            backend:
+              service:
+                name: forge-api
+                port:
+                  number: 8080
+          - path: /billing
+            pathType: Prefix
+            backend:
+              service:
+                name: forge-api
+                port:
+                  number: 8080
+          # Frontend SPA fallback
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: forge-web
+                port:
+                  number: 80
+

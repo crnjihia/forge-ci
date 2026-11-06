@@ -1,0 +1,10 @@
+# path: deployments/k8s/00-namespace.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: forge-ci
+  labels:
+    app.kubernetes.io/name: forge-ci
+    app.kubernetes.io/part-of: forge-ci
+    app.kubernetes.io/managed-by: kustomize
+

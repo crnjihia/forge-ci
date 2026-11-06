@@ -1,0 +1,32 @@
+# path: deployments/systemd/forge-runner.service
+[Unit]
+Description=Forge CI - Standalone Container Execution Runner Daemon
+Documentation=https://github.com/crnji/forge-ci
+After=network.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=forge
+Group=forge
+SupplementaryGroups=docker
+WorkingDirectory=/var/lib/forge
+EnvironmentFile=/etc/forge/forge.env
+ExecStart=/usr/local/bin/forge-runner
+Restart=always
+RestartSec=5s
+LimitNOFILE=65535
+
+# Hardening Directives
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+
+# Standard Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=forge-runner
+
+[Install]
+WantedBy=multi-user.target
+

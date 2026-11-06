@@ -68,9 +68,22 @@ func BuildRouter(cfg RouterConfig) chi.Router {
 	// Health check
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		render.JSON(w, r, map[string]interface{}{
-			"status":    "ok",
-			"timestamp": time.Now().UTC().Format(time.RFC3339),
-			"service":   "forge-ci-api",
+			"status":     "ok",
+			"timestamp":  time.Now().UTC().Format(time.RFC3339),
+			"service":    "forge-ci-api",
+			"version":    Version,
+			"commit":     Commit,
+			"build_date": BuildDate,
+		})
+	})
+
+	// Version metadata
+	r.Get("/version", func(w http.ResponseWriter, r *http.Request) {
+		render.JSON(w, r, map[string]interface{}{
+			"service":    "forge-ci-api",
+			"version":    Version,
+			"commit":     Commit,
+			"build_date": BuildDate,
 		})
 	})
 

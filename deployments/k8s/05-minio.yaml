@@ -1,0 +1,146 @@
+# path: deployments/k8s/05-minio.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: forge-minio
+  namespace: forge-ci
+  labels:
+    app.kubernetes.io/name: forge-ci
+    app.kubernetes.io/component: object-storage
+spec:
+  ports:
+    - name: api
+      port: 9000
+      targetPort: 9000
+    - name: console
+      port: 9001
+      targetPort: 9001
+  selector:
+    app.kubernetes.io/name: forge-minio
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: minio-pvc
+  namespace: forge-ci
+  labels:
+    app.kubernetes.io/name: forge-minio
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: forge-minio
+  namespace: forge-ci
+  labels:
+    app.kubernetes.io/name: forge-minio
+    app.kubernetes.io/part-of: forge-ci
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: forge-minio
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: forge-minio
+        app.kubernetes.io/part-of: forge-ci
+    spec:
+      containers:
+        - name: minio
+          image: minio/minio:RELEASE.2024-05-10T01-41-38Z
+          imagePullPolicy: IfNotPresent
+          args: ["server", "/data", "--console-address", ":9001"]
+          ports:
+            - name: api
+              containerPort: 9000
+            - name: console
+              containerPort: 9001
+          env:
+            - name: MINIO_ROOT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: forge-secrets
+                  key: MINIO_ROOT_USER
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: forge-secrets
+                  key: MINIO_ROOT_PASSWORD
+          volumeMounts:
+            - name: minio-storage
+              mountPath: /data
+          livenessProbe:
+            httpGet:
+              path: /minio/health/live
+              port: 9000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /minio/health/ready
+              port: 9000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1024Mi
+      volumes:
+        - name: minio-storage
+          persistentVolumeClaim:
+            claimName: minio-pvc
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: forge-minio-init-bucket
+  namespace: forge-ci
+  labels:
+    app.kubernetes.io/name: forge-minio-init
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: forge-minio-init
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: mc
+          image: minio/mc:RELEASE.2024-05-09T17-04-24Z
+          env:
+            - name: MINIO_ROOT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: forge-secrets
+                  key: MINIO_ROOT_USER
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: forge-secrets
+                  key: MINIO_ROOT_PASSWORD
+            - name: MINIO_BUCKET
+              valueFrom:
+                configMapKeyRef:
+                  name: forge-config
+                  key: MINIO_BUCKET
+          command:
+            - /bin/sh
+            - -c
+            - >
+              until /usr/bin/mc alias set local http://forge-minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD; do
+                echo "Waiting for MinIO service...";
+                sleep 2;
+              done;
+              /usr/bin/mc mb --ignore-existing local/$$MINIO_BUCKET;
+              echo "Bucket $$MINIO_BUCKET initialized successfully.";
+
