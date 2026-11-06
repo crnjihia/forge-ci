@@ -22,6 +22,21 @@ type SecretMasker interface {
 	MaskString(s string) string
 }
 
+// StepSummary represents basic step information for historical replay.
+type StepSummary struct {
+	StepID     string `json:"step_id"`
+	Name       string `json:"name"`
+	Command    string `json:"command"`
+	Status     string `json:"status"`
+	ExitCode   *int   `json:"exit_code,omitempty"`
+	DurationMs int64  `json:"duration_ms"`
+}
+
+// RunHistoryProvider retrieves step execution history for a run.
+type RunHistoryProvider interface {
+	GetRunSteps(ctx context.Context, runID string) ([]StepSummary, error)
+}
+
 // LogStore abstracts database log persistence and historical queries.
 type LogStore interface {
 	InsertBatch(ctx context.Context, entries []LogEntry) error

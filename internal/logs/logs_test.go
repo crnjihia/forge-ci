@@ -146,7 +146,7 @@ func TestStreamer_ChunkedBatchingAndMasking(t *testing.T) {
 
 func TestSSEHandler_HeadersAndMissingRunID(t *testing.T) {
 	r := chi.NewRouter()
-	r.Get("/runs/{runID}/logs", SSEHandler(nil, nil, nil))
+	r.Get("/runs/{runID}/logs", SSEHandler(nil, nil, nil, nil))
 
 	// Test missing runID route param
 	req := httptest.NewRequest(http.MethodGet, "/runs//logs", nil)

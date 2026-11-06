@@ -327,7 +327,12 @@ export const App: React.FC = () => {
 
             {/* Live SSE Terminal Log Streamer */}
             {selectedRun && (
-              <LogViewer runId={selectedRun.id} stepId={selectedStepId} />
+              <LogViewer
+                runId={selectedRun.id}
+                stepId={selectedStepId}
+                runStatus={selectedRun.status}
+                onClearStepFilter={() => setSelectedStepId(null)}
+              />
             )}
           </div>
         )}

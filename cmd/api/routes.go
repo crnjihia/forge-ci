@@ -2,6 +2,7 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"time"
@@ -33,6 +34,11 @@ type RouterConfig struct {
 // BuildRouter configures middleware, health checks, and all API endpoints.
 func BuildRouter(cfg RouterConfig) chi.Router {
 	r := chi.NewRouter()
+
+	var historyProvider logs.RunHistoryProvider
+	if cfg.Store != nil {
+		historyProvider = &runHistoryAdapter{st: cfg.Store}
+	}
 
 	// 1. CORS middleware
 	r.Use(func(next http.Handler) http.Handler {
@@ -95,7 +101,7 @@ func BuildRouter(cfg RouterConfig) chi.Router {
 		rr.Post("/{id}/cancel", handleCancelRun(cfg.Coordinator))
 
 		// Real-time Server-Sent Events log streaming
-		rr.Get("/{runID}/logs", logs.SSEHandler(cfg.RedisPub, cfg.DBPool, cfg.SecretManager))
+		rr.Get("/{runID}/logs", logs.SSEHandler(cfg.RedisPub, historyProvider, cfg.DBPool, cfg.SecretManager))
 
 		// Run Artifacts
 		rr.Get("/{runID}/artifacts", handleListArtifacts(cfg.Store))
@@ -124,4 +130,31 @@ func BuildRouter(cfg RouterConfig) chi.Router {
 
 	return r
 }
+
+type runHistoryAdapter struct {
+	st store.Store
+}
+
+func (a *runHistoryAdapter) GetRunSteps(ctx context.Context, runID string) ([]logs.StepSummary, error) {
+	if a.st == nil {
+		return nil, nil
+	}
+	steps, err := a.st.GetStepsByRunID(ctx, runID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]logs.StepSummary, len(steps))
+	for i, s := range steps {
+		out[i] = logs.StepSummary{
+			StepID:     s.StepID,
+			Name:       s.Name,
+			Command:    s.Command,
+			Status:     s.Status,
+			ExitCode:   s.ExitCode,
+			DurationMs: s.DurationMs,
+		}
+	}
+	return out, nil
+}
+
 
