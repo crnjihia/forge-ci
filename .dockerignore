@@ -1,0 +1,13 @@
+// path: .dockerignore
+.git
+bin/
+dist/
+node_modules/
+web/node_modules/
+web/dist/
+*.exe
+*.zip
+*.tar.gz
+pgdata/
+redisdata/
+miniodata/
