@@ -243,7 +243,9 @@ export const LogViewer: React.FC<LogViewerProps> = ({
                 </span>
               )}
               <span className="break-all whitespace-pre-wrap flex-1 text-slate-200">
-                {log.text}
+                {log.step && log.text.startsWith(`[${log.step}] `)
+                  ? log.text.slice(log.step.length + 3)
+                  : log.text}
               </span>
             </div>
           ))
