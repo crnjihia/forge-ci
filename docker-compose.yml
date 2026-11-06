@@ -1,0 +1,137 @@
+# path: docker-compose.yml
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: forge_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: forge
+      POSTGRES_PASSWORD: forge_secret
+      POSTGRES_DB: forge_ci
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U forge -d forge_ci"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: forge_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:RELEASE.2024-05-10T01-41-38Z
+    container_name: forge_minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: forge_minio_admin
+      MINIO_ROOT_PASSWORD: forge_minio_secret
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  createbuckets:
+    image: minio/mc:RELEASE.2024-05-09T17-04-24Z
+    container_name: forge_minio_init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set local http://minio:9000 forge_minio_admin forge_minio_secret;
+      /usr/bin/mc mb --ignore-existing local/forge-artifacts;
+      exit 0;
+      "
+
+  api:
+    build:
+      context: .
+      dockerfile: cmd/api/Dockerfile
+    container_name: forge_api
+    restart: unless-stopped
+    environment:
+      PORT: 8080
+      ENV: development
+      TIMEZONE: Africa/Nairobi
+      FORGE_MASTER_KEY: "0123456789abcdef0123456789abcdef"
+      POSTGRES_URL: "postgres://forge:forge_secret@postgres:5432/forge_ci?sslmode=disable"
+      REDIS_URL: "redis://redis:6379/0"
+      MINIO_ENDPOINT: "minio:9000"
+      MINIO_ACCESS_KEY: "forge_minio_admin"
+      MINIO_SECRET_KEY: "forge_minio_secret"
+      MINIO_BUCKET: "forge-artifacts"
+      MINIO_USE_SSL: "false"
+      USE_MOCK_INTEGRATIONS: "true"
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      createbuckets:
+        condition: service_completed_successfully
+
+  runner:
+    build:
+      context: .
+      dockerfile: cmd/runner/Dockerfile
+    container_name: forge_runner
+    restart: unless-stopped
+    environment:
+      ENV: development
+      TIMEZONE: Africa/Nairobi
+      FORGE_MASTER_KEY: "0123456789abcdef0123456789abcdef"
+      POSTGRES_URL: "postgres://forge:forge_secret@postgres:5432/forge_ci?sslmode=disable"
+      REDIS_URL: "redis://redis:6379/0"
+      MINIO_ENDPOINT: "minio:9000"
+      MINIO_ACCESS_KEY: "forge_minio_admin"
+      MINIO_SECRET_KEY: "forge_minio_secret"
+      MINIO_BUCKET: "forge-artifacts"
+      MINIO_USE_SSL: "false"
+      USE_MOCK_INTEGRATIONS: "true"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    container_name: forge_web
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:
+

@@ -1,0 +1,47 @@
+# Binaries and build artifacts
+bin/
+dist/
+build/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test and coverage artifacts
+*.test
+*.out
+coverage.html
+
+# Go workspace and vendor
+vendor/
+go.work
+
+# Dependencies and caches
+node_modules/
+.npm/
+.pnpm-store/
+.turbo/
+
+# Environment files - strictly never commit secrets
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Database and Storage Volumes
+pgdata/
+redisdata/
+miniodata/
+data/
+
+# IDE and OS files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
