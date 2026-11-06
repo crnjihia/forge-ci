@@ -2,6 +2,7 @@
 name: Forge CI - Release & Package Automation
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - 'v*.*.*'
@@ -109,11 +110,14 @@ jobs:
         id: meta-api
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository }}/forge-api
+          images: ghcr.io/${{ github.repository_owner }}/forge-api
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.description=Forge CI API Server
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest
 
       - name: Build and push forge-api image
         uses: docker/build-push-action@v5
@@ -131,11 +135,14 @@ jobs:
         id: meta-runner
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository }}/forge-runner
+          images: ghcr.io/${{ github.repository_owner }}/forge-runner
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.description=Forge CI Runner
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest
 
       - name: Build and push forge-runner image
         uses: docker/build-push-action@v5
@@ -153,11 +160,14 @@ jobs:
         id: meta-web
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository }}/forge-web
+          images: ghcr.io/${{ github.repository_owner }}/forge-web
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.description=Forge CI Web Dashboard
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest
 
       - name: Build and push forge-web image
         uses: docker/build-push-action@v5
